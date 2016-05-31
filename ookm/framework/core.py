@@ -130,6 +130,8 @@ class _LinkStats(object):
 
 # TODO add locks to prevent race conditions
 class LinkManager(object):
+    PORT_STATS_REQUEST_INTERVAL = 1
+
     def __init__(self):
         self.links = []  # links that has been used in user programs
         self.conns = {}  # dpid: dp
@@ -219,6 +221,12 @@ class LinkManager(object):
             port_no = stat.port_no
             found = list(filter(lambda ls: ls.switch1 == dpid and ls.port1 == port_no, self.links_with_stats))
             if found:
+                # generate speed from statistics
+                found[0].stats['tx_speed'] = (stat.tx_bytes - found[0].stats['tx_bytes'])\
+                                             / LinkManager.PORT_STATS_REQUEST_INTERVAL
+                found[0].stats['rx_speed'] = (stat.rx_bytes - found[0].stats['rx_bytes']) \
+                                             / LinkManager.PORT_STATS_REQUEST_INTERVAL
+                # update statistics
                 found[0].stats['rx_packets'] = stat.rx_packets
                 found[0].stats['rx_bytes'] = stat.rx_bytes
                 found[0].stats['rx_errors'] = stat.rx_errors
@@ -233,6 +241,10 @@ class LinkManager(object):
                 ls.stats['tx_packets'] = stat.tx_packets
                 ls.stats['tx_bytes'] = stat.tx_bytes
                 ls.stats['tx_packets'] = stat.tx_errors
+                # these values will be generated from statistics
+                ls.stats['tx_speed'] = 0
+                ls.stats['rx_speed'] = 0
+
                 self.links_with_stats.append(ls)
 
     def query_load(self, s1, p1):
