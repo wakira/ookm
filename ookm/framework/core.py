@@ -22,9 +22,8 @@ import asyncio
 import json
 import networkx
 from ookm.lang.predicate import predicates_intersects
-from ryu.topology.api import get_all_switch, get_all_link, get_all_host
+from ryu.topology.api import get_all_switch, get_all_link
 from operator import attrgetter
-from argparse import ArgumentError
 
 
 class Logger(object):
@@ -56,7 +55,8 @@ class RuleManager(object):
     def __init__(self):
         self.rules = []
 
-    def load_program(self, name):
+    @staticmethod
+    def load_program(name):
         if name is None:
             ookm_log.critical("Specify correct ookm program with OOKM_PROGRAM environment variable!")
             exit(1)

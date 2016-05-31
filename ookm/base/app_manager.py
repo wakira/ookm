@@ -59,12 +59,12 @@ class OokmRyuCore(app_manager.RyuApp):
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
-        #actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
+        # actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
         self.add_flow(datapath, 0, match, actions)
 
     @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, DEAD_DISPATCHER])
     def _state_change_handler(self, ev):
-        datapath = ev.datapath
+        # datapath = ev.datapath
         event = None
         if ev.state == MAIN_DISPATCHER:
             # switch registry is now done in topology discovery instead
@@ -86,7 +86,6 @@ class OokmRyuCore(app_manager.RyuApp):
         core.link_mgr.unregister_switch(ev.switch.dp.id)
         core.link_mgr.update_topology(self)
 
-    # TODO do more
     @set_ev_cls(topology.event.EventLinkAdd)
     def _link_add_handler(self, ev):
         core.link_mgr.register_link(ev.link.src, ev.link.dst)
@@ -124,11 +123,11 @@ class OokmRyuCore(app_manager.RyuApp):
                 rule.perform_actions(context)
         context.perform(all_matched_fields)
 
-
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         self._handle_event(ookm_event.PacketIn(ev))
 
+    # no need for FlowStats for now
     '''
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_handler(self, ev):
@@ -139,6 +138,7 @@ class OokmRyuCore(app_manager.RyuApp):
     def _port_status_handler(self, ev):
         core.link_mgr.handle_port_stats(ev)
 
+    # We will just use the default Ryu error handling
     '''
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
     def _error_msg_handler(self, ev):

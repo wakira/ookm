@@ -53,7 +53,7 @@ def get_exact_match(msg):
                                    udp_src=pkt_udp.src_port, udp_dst=pkt_udp.dst_port, eth_type=ETH_TYPE_IPV4)
         if pkt_icmp:
             return parser.OFPMatch(ip_proto=socket.IPPROTO_ICMP, ipv4_src=pkt_ipv4.src, ipv4_dst=pkt_ipv4.dst,
-                                   icmp_type=pkt_icmp.type, icmp_code=pkt_icmp.code, eth_type=ETH_TYPE_IPV4)
+                                   icmpv4_type=pkt_icmp.type, icmpv4_code=pkt_icmp.code, eth_type=ETH_TYPE_IPV4)
     elif pkt_ipv6:
         if pkt_tcp:
             return parser.OFPMatch(ip_proto=socket.IPPROTO_TCP, ipv6_src=pkt_ipv6.src, ipv6_dst=pkt_ipv6.dst,

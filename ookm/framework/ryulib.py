@@ -71,7 +71,7 @@ class IsControlMessages(AtomicPredicate):
         pkt_arp = pkt.get_protocol(arp.arp)
         pkt_icmp = pkt.get_protocol(icmp.icmp)
         pkt_icmpv6 = pkt.get_protocol(icmpv6.icmpv6)
-        pkt_lltp = pkt.get_protocol(lldp.lldp)
+        # pkt_lldp = pkt.get_protocol(lldp.lldp)
         return pkt_arp or pkt_icmp or pkt_icmpv6
 
 
@@ -325,7 +325,7 @@ class DstIp(AtomicPredicate):
 class EchoRequest(AtomicPredicate):
     def __init__(self):
         super(EchoRequest, self).__init__()
-        self.fields_filter = {'icmp_type': icmp.ICMP_ECHO_REQUEST}
+        self.fields_filter = {'icmpv4_type': icmp.ICMP_ECHO_REQUEST}
         self.matched_fields = self.fields_filter
 
     def _test(self, event):
@@ -393,12 +393,11 @@ class RandomSelector(MemberSelector):
 
 class RoundRobinSelector(MemberSelector):
     def __init__(self, members):
-        super(RoundRobinSelector, self).__init__()
-        self.members = members
+        super(RoundRobinSelector, self).__init__(members)
         self.index = 0
 
     def select(self, event):
-        ret = [ self.members[self.index] ]
+        ret = [self.members[self.index]]
         self.index = (self.index + 1) % len(self.members)
         return ret
 
@@ -1076,5 +1075,10 @@ class Link(object):
 
     @property
     def load(self):
+        stats = link_mgr.query_load(self.switch1, self.port1)
+        return stats.get('tx_speed', 0) + stats.get('rx_speed', 0)
+
+    @property
+    def usage(self):
         stats = link_mgr.query_load(self.switch1, self.port1)
         return stats.get('tx_bytes', 0) + stats.get('rx_bytes', 0)
