@@ -135,7 +135,6 @@ class OokmFlowModContext(object):
 
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
-        print("THIS IS BUFFER ID: %d", msg.buffer_id)
         if msg.buffer_id != ofproto.OFP_NO_BUFFER:
             mod = parser.OFPFlowMod(datapath=datapath, buffer_id=msg.buffer_id,
                                     priority=priority, match=match,

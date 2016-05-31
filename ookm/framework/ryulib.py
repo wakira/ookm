@@ -764,9 +764,9 @@ class ApplyRouteForEach(Action):
             if not (switch_1_to_2 or switch_2_to_1):
                 ookm_log.warning("The link is not associated to the switch")
                 return
-            outport = first_link.port1
+            outport = link.port1
             if switch_2_to_1:
-                outport = first_link.port2
+                outport = link.port2
 
             # send out flow_mod
             target_dp = link_mgr.conns[target]
@@ -775,7 +775,7 @@ class ApplyRouteForEach(Action):
             actions = [parser.OFPActionOutput(outport)]
             inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                                  actions)]
-            mod = parser.OFPFlowMod(datapath=datapath, priority=4,
+            mod = parser.OFPFlowMod(datapath=target_dp, priority=4,
                                     match=match, instructions=inst)
             target_dp.send_msg(mod)
 
