@@ -143,19 +143,20 @@ class LinkManager(object):
         if switch1:
             found = None
             if switch2:
-                found = list(filter(lambda l: l.src.dp.id == switch1.dpid and l.dst.dpid == switch2,
-                                    self._topo_raw_links))
+                def ss_match(port):
+                    return port.src.dpid == switch1.dpid and port.dst.dpid == switch2.dpid
+                found = list(filter(ss_match, self._topo_raw_links))
             elif port1:
-                found = list(filter(lambda l: l.src.dpid == switch1.dpid and l.src.port_no == port1,
-                                    self._topo_raw_links))
+                def sp_match(port):
+                    return port.src.dpid == switch1.dpid and port.src.port_no == port1
+                found = list(filter(sp_match, self._topo_raw_links))
             elif host:
-                r = None
-                if host.ipv4:
+                if host.mac:
+                    r = host_mgr.query_host(mac=host.mac)
+                elif host.ipv4:
                     r = host_mgr.query_host(ipv4=host.ipv4)
                 elif host.ipv6:
                     r = host_mgr.query_host(ipv6=host.ipv6)
-                elif host.mac:
-                    r = host_mgr.query_host(ipv6=host.mac)
                 else:
                     return None, None, None, None
                 if r:
@@ -257,12 +258,12 @@ class HostManager(object):
 
     def query_host(self, ipv4=None, ipv6=None, mac=None):
         found = None
-        if ipv4:
+        if mac:
+            found = list(filter(lambda h: h.mac == mac, self._topology_raw_hosts))
+        elif ipv4:
             found = list(filter(lambda h: ipv4 in h.ipv4, self._topology_raw_hosts))
         elif ipv6:
             found = list(filter(lambda h: ipv6 in h.ipv6, self._topology_raw_hosts))
-        elif mac:
-            found = list(filter(lambda h: h.mac == mac, self._topology_raw_hosts))
         if found:
             return found[0].port.dpid, found[0].port.port_no
         else:

@@ -69,7 +69,6 @@ class IsPortStatsReceived(AtomicPredicate):
 class IsControlMessages(AtomicPredicate):
     def _test(self, event):
         if not isinstance(event, PacketIn):
-            ookm_log.info("Not PacketIn, %s", event)
             return
         msg = event.msg
         pkt = packet.Packet(data=msg.data)
@@ -928,11 +927,10 @@ class Link(object):
             ookm_log.error("Invalid parameter for Link()")
             raise RuntimeError()
 
-        # if None, None, None, None is returned by link_mgr.query_link()
-        if not (self.switch1 or self.switch2 or self.port1 or self.port2):
-            self.info_retrieved = False
-        else:
+        # if any info is returned by link_mgr.query_link()
+        if self.switch1 or self.switch2 or self.port1 or self.port2:
             self.info_retrieved = True
+            ookm_log.info("Retrieved info of link %s", self.__str__())
 
     def __init__(self, switch_port=None, switch_switch=None, switch_host=None):
         # full link info is not retrieved when Link object is created
