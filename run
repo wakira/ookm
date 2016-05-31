@@ -1,0 +1,2 @@
+#!/bin/bash
+PYTHONPATH=$PYTHONPATH:$(pwd) OOKM_PROGRAM=$1 ryu-manager --observe-links ookm.base.app_manager ookm.base.gui_topology
