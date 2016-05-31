@@ -24,8 +24,9 @@ from ryu.lib.packet import icmpv6
 from ryu.lib.packet import ipv4
 from ryu.lib.packet import ipv6
 
-_ETH_TYPE_IPV4 = 0x800
-_ETH_TYPE_IPV6 = 0x86dd
+ETH_TYPE_IPV4 = 0x800
+ETH_TYPE_IPV6 = 0x86dd
+ETH_TYPE_ARP = 0x806
 
 
 # Helper
@@ -43,30 +44,29 @@ def get_exact_match(msg):
     pkt_icmpv6 = pkt.get_protocol(icmpv6.icmpv6)
     pkt_tcp = pkt.get_protocol(tcp.tcp)
     pkt_udp = pkt.get_protocol(udp.udp)
-    # TODO a lot of work...
     if pkt_ipv4:
         if pkt_tcp:
             return parser.OFPMatch(ip_proto=socket.IPPROTO_TCP, ipv4_src=pkt_ipv4.src, ipv4_dst=pkt_ipv4.dst,
-                                   tcp_src=pkt_tcp.src_port, tcp_dst=pkt_tcp.dst_port, eth_type=_ETH_TYPE_IPV4)
+                                   tcp_src=pkt_tcp.src_port, tcp_dst=pkt_tcp.dst_port, eth_type=ETH_TYPE_IPV4)
         if pkt_udp:
             return parser.OFPMatch(ip_proto=socket.IPPROTO_UDP, ipv4_src=pkt_ipv4.src, ipv4_dst=pkt_ipv4.dst,
-                                   udp_src=pkt_udp.src_port, udp_dst=pkt_udp.dst_port, eth_type=_ETH_TYPE_IPV4)
+                                   udp_src=pkt_udp.src_port, udp_dst=pkt_udp.dst_port, eth_type=ETH_TYPE_IPV4)
         if pkt_icmp:
             return parser.OFPMatch(ip_proto=socket.IPPROTO_ICMP, ipv4_src=pkt_ipv4.src, ipv4_dst=pkt_ipv4.dst,
-                                   icmp_type=pkt_icmp.type, icmp_code=pkt_icmp.code, eth_type=_ETH_TYPE_IPV4)
+                                   icmp_type=pkt_icmp.type, icmp_code=pkt_icmp.code, eth_type=ETH_TYPE_IPV4)
     elif pkt_ipv6:
         if pkt_tcp:
             return parser.OFPMatch(ip_proto=socket.IPPROTO_TCP, ipv6_src=pkt_ipv6.src, ipv6_dst=pkt_ipv6.dst,
-                                   tcp_src=pkt_tcp.src_port, tcp_dst=pkt_tcp.dst_port, eth_type=_ETH_TYPE_IPV6)
+                                   tcp_src=pkt_tcp.src_port, tcp_dst=pkt_tcp.dst_port, eth_type=ETH_TYPE_IPV6)
         if pkt_udp:
             return parser.OFPMatch(ip_proto=socket.IPPROTO_UDP, ipv6_src=pkt_ipv6.src, ipv6_dst=pkt_ipv6.dst,
-                                   udp_src=pkt_udp.src_port, udp_dst=pkt_udp.dst_port, eth_type=_ETH_TYPE_IPV6)
+                                   udp_src=pkt_udp.src_port, udp_dst=pkt_udp.dst_port, eth_type=ETH_TYPE_IPV6)
         elif pkt_icmpv6:
             return parser.OFPMatch(ip_proto=socket.IPPROTO_ICMPV6, ipv6_src=pkt_ipv6.src, ipv6_dst=pkt_ipv6.dst,
-                                   icmpv6_type_=pkt_icmpv6.type_, icmpv6_code=pkt_icmpv6.code, eth_type=_ETH_TYPE_IPV6)
+                                   icmpv6_type_=pkt_icmpv6.type_, icmpv6_code=pkt_icmpv6.code, eth_type=ETH_TYPE_IPV6)
     elif pkt_arp:
-        # ("ARP EXACT MATCH NOT IMPLEMENTED YET")
-        return None
+        return parser.OFPMatch(arp_opcode=pkt_arp.opcode, arp_src_ip=pkt_arp.src_ip, arp_dst_ip=pkt_arp.dst_ip,
+                               arp_src_mac=pkt_arp.src_mac, arp_dst_mac=pkt_arp.dst_mac, eth_type=ETH_TYPE_ARP)
 
 
 class OokmFlowModContext(object):

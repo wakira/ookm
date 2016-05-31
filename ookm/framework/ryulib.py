@@ -36,13 +36,6 @@ from ookm.lang.predicate import predicate_conflict_helper
 from ookm.lang.rule import Rule
 from ookm.lang.selector import *
 
-_ETH_TYPE_IPV4 = 0x800
-_ETH_TYPE_IPV6 = 0x86dd
-
-
-# Utilities
-
-
 # Predicates
 
 
@@ -151,9 +144,9 @@ class TcpSrcPort(AtomicPredicate):
         pkt_ipv4 = pkt.get_protocol(ipv4.ipv4)
         pkt_ipv6 = pkt.get_protocol(ipv6.ipv6)
         if pkt_ipv4:
-            self.matched_fields['eth_type'] = _ETH_TYPE_IPV4
+            self.matched_fields['eth_type'] = ETH_TYPE_IPV4
         elif pkt_ipv6:
-            self.matched_fields['eth_type'] = _ETH_TYPE_IPV6
+            self.matched_fields['eth_type'] = ETH_TYPE_IPV6
         pkt_tcp = pkt.get_protocol(tcp.tcp)
         return pkt_tcp and pkt_tcp.src_port == self.port
 
@@ -184,9 +177,9 @@ class UdpSrcPort(AtomicPredicate):
         pkt_ipv4 = pkt.get_protocol(ipv4.ipv4)
         pkt_ipv6 = pkt.get_protocol(ipv6.ipv6)
         if pkt_ipv4:
-            self.matched_fields['eth_type'] = _ETH_TYPE_IPV4
+            self.matched_fields['eth_type'] = ETH_TYPE_IPV4
         elif pkt_ipv6:
-            self.matched_fields['eth_type'] = _ETH_TYPE_IPV6
+            self.matched_fields['eth_type'] = ETH_TYPE_IPV6
         return pkt_udp and pkt_udp.src_port == self.port
 
     def conflicts_with(self, other):
@@ -216,9 +209,9 @@ class TcpDstPort(AtomicPredicate):
         pkt_ipv4 = pkt.get_protocol(ipv4.ipv4)
         pkt_ipv6 = pkt.get_protocol(ipv6.ipv6)
         if pkt_ipv4:
-            self.matched_fields['eth_type'] = _ETH_TYPE_IPV4
+            self.matched_fields['eth_type'] = ETH_TYPE_IPV4
         elif pkt_ipv6:
-            self.matched_fields['eth_type'] = _ETH_TYPE_IPV6
+            self.matched_fields['eth_type'] = ETH_TYPE_IPV6
         return pkt_tcp and pkt_tcp.dst_port == self.port
 
     def conflicts_with(self, other):
@@ -247,9 +240,9 @@ class UdpDstPort(AtomicPredicate):
         pkt_ipv4 = pkt.get_protocol(ipv4.ipv4)
         pkt_ipv6 = pkt.get_protocol(ipv6.ipv6)
         if pkt_ipv4:
-            self.matched_fields['eth_type'] = _ETH_TYPE_IPV4
+            self.matched_fields['eth_type'] = ETH_TYPE_IPV4
         elif pkt_ipv6:
-            self.matched_fields['eth_type'] = _ETH_TYPE_IPV6
+            self.matched_fields['eth_type'] = ETH_TYPE_IPV6
         return pkt_udp and pkt_udp.dst_port == self.port
 
     def conflicts_with(self, other):
@@ -259,30 +252,32 @@ class UdpDstPort(AtomicPredicate):
         return super(UdpDstPort, self).__eq__(other) and self.port == other.port
 
 
-# TODO add fields_filter and matched_fields
 class SrcIp(AtomicPredicate):
     def __init__(self, ip_str):
         super(SrcIp, self).__init__()
-        # TODO sanity check here
         self.ip_str = ip_str
         self.ipv4 = ':' not in ip_str
         if self.ipv4:
-            self.fields_filter = {'eth_type': _ETH_TYPE_IPV4, 'ipv4_src': ip_str}
+            self.fields_filter = {'eth_type': ETH_TYPE_IPV4, 'ipv4_src': ip_str}
         else:
-            self.fields_filter = {'eth_type': _ETH_TYPE_IPV6, 'ipv6_src': ip_str}
+            self.fields_filter = {'eth_type': ETH_TYPE_IPV6, 'ipv6_src': ip_str}
         self.matched_fields = self.fields_filter
 
     def _test(self, event):
         if not isinstance(event, PacketIn):
             return
         raw = event.msg.data
-        pkt = packet.Packet(data = raw)
+        pkt = packet.Packet(data=raw)
         pkt_ethernet = pkt.get_protocol(ethernet.ethernet)
         if not pkt_ethernet:
             return False
+        pkt_arp = pkt.get_protocol(arp.arp)
+        if pkt_arp:
+            self.matched_fields = {'eth_type': ETH_TYPE_ARP, 'arp_src_ip': self.ip_str}
         pkt_ipv4 = pkt.get_protocol(ipv4.ipv4)
         pkt_ipv6 = pkt.get_protocol(ipv6.ipv6)
-        return (self.ipv4 and pkt_ipv4 and pkt_ipv4.src == self.ip_str) or\
+        return (self.ipv4 and pkt_arp and pkt_arp.src_ip == self.ip_str) or\
+               (self.ipv4 and pkt_ipv4 and pkt_ipv4.src == self.ip_str) or\
                (not self.ipv4 and pkt_ipv6 and pkt_ipv6.src == self.ip_str)
 
     def conflicts_with(self, other):
@@ -295,37 +290,14 @@ class SrcIp(AtomicPredicate):
 class DstIp(AtomicPredicate):
     def __init__(self, ip_str):
         super(DstIp, self).__init__()
-        # TODO sanity check here
         self.ip_str = ip_str
         self.ipv4 = ':' not in ip_str
         if self.ipv4:
-            self.fields_filter = {'eth_type': _ETH_TYPE_IPV4, 'ipv4_dst': ip_str}
+            self.fields_filter = {'eth_type': ETH_TYPE_IPV4, 'ipv4_dst': ip_str}
         else:
-            self.fields_filter = {'eth_type': _ETH_TYPE_IPV6, 'ipv6_dst': ip_str}
+            self.fields_filter = {'eth_type': ETH_TYPE_IPV6, 'ipv6_dst': ip_str}
         self.matched_fields = self.fields_filter
 
-    def _test(self, event):
-        if not isinstance(event, PacketIn):
-            return
-        raw = event.msg.data
-        pkt = packet.Packet(data = raw)
-        pkt_ethernet = pkt.get_protocol(ethernet.ethernet)
-        if not pkt_ethernet:
-            return False
-        pkt_ipv4 = pkt.get_protocol(ipv4.ipv4)
-        pkt_ipv6 = pkt.get_protocol(ipv6.ipv6)
-        return (self.ipv4 and pkt_ipv4 and pkt_ipv4.dst == self.ip_str) or\
-               (not self.ipv4 and pkt_ipv6 and pkt_ipv6.dst == self.ip_str)
-
-    def conflicts_with(self, other):
-        return predicate_conflict_helper(self, self.ip_str, other, other.ip_str)
-
-    def __eq__(self, other):
-        return super(DstIp, self).__eq__(other) and self.ip_str == other.ip_str
-
-
-# TODO add match fields
-class EchoRequest(AtomicPredicate):
     def _test(self, event):
         if not isinstance(event, PacketIn):
             return
@@ -335,10 +307,78 @@ class EchoRequest(AtomicPredicate):
         if not pkt_ethernet:
             return False
         pkt_arp = pkt.get_protocol(arp.arp)
+        if pkt_arp:
+            self.matched_fields = {'eth_type': ETH_TYPE_ARP, 'arp_dst_ip': self.ip_str}
+        pkt_ipv4 = pkt.get_protocol(ipv4.ipv4)
+        pkt_ipv6 = pkt.get_protocol(ipv6.ipv6)
+        return (self.ipv4 and pkt_arp and pkt_arp.dst_ip == self.ip_str) or\
+               (self.ipv4 and pkt_ipv4 and pkt_ipv4.dst == self.ip_str) or\
+               (not self.ipv4 and pkt_ipv6 and pkt_ipv6.dst == self.ip_str)
+
+    def conflicts_with(self, other):
+        return predicate_conflict_helper(self, self.ip_str, other, other.ip_str)
+
+    def __eq__(self, other):
+        return super(DstIp, self).__eq__(other) and self.ip_str == other.ip_str
+
+
+class EchoRequest(AtomicPredicate):
+    def __init__(self):
+        super(EchoRequest, self).__init__()
+        self.fields_filter = {'icmp_type': icmp.ICMP_ECHO_REQUEST}
+        self.matched_fields = self.fields_filter
+
+    def _test(self, event):
+        if not isinstance(event, PacketIn):
+            return
+        raw = event.msg.data
+        pkt = packet.Packet(data=raw)
+        pkt_ethernet = pkt.get_protocol(ethernet.ethernet)
+        if not pkt_ethernet:
+            return False
         pkt_icmp = pkt.get_protocol(icmp.icmp)
         pkt_icmpv6 = pkt.get_protocol(icmpv6.icmpv6)
+        if pkt_icmpv6:
+            self.matched_fields = {'icmpv6_type': icmpv6.ICMPV6_ECHO_REQUEST}
         return (pkt_icmp and pkt_icmp.type == icmp.ICMP_ECHO_REQUEST) or\
                (pkt_icmpv6 and pkt_icmpv6.type_ == icmpv6.ICMPV6_ECHO_REQUEST)
+
+
+class ArpRequest(AtomicPredicate):
+    def __init__(self):
+        super(ArpRequest, self).__init__()
+        self.fields_filter = {'arp_opcode': arp.ARP_REQUEST, 'eth_type': ETH_TYPE_ARP}
+        self.matched_fields = self.fields_filter
+
+    def _test(self, event):
+        if not isinstance(event, PacketIn):
+            return
+        raw = event.msg.data
+        pkt = packet.Packet(data=raw)
+        pkt_ethernet = pkt.get_protocol(ethernet.ethernet)
+        if not pkt_ethernet:
+            return False
+        pkt_arp = pkt.get_protocol(arp.arp)
+        return pkt_arp and pkt_arp.opcode == arp.ARP_REQUEST
+
+
+class ArpReply(AtomicPredicate):
+    def __init__(self):
+        super(ArpReply, self).__init__()
+        self.fields_filter = {'arp_opcode': arp.ARP_REPLY, 'eth_type': ETH_TYPE_ARP}
+        self.matched_fields = self.fields_filter
+
+    def _test(self, event):
+        if not isinstance(event, PacketIn):
+            return
+        raw = event.msg.data
+        pkt = packet.Packet(data=raw)
+        pkt_ethernet = pkt.get_protocol(ethernet.ethernet)
+        if not pkt_ethernet:
+            return False
+        pkt_arp = pkt.get_protocol(arp.arp)
+        return pkt_arp and pkt_arp.opcode == arp.ARP_REPLY
+
 
 # Selectors
 
@@ -434,6 +474,79 @@ class SetSrcIPAddr(Action):
             context.set_field({'ipv4_src': self.ip_str})
         else:
             context.set_field({'ipv6_src': self.ip_str})
+
+
+class SendArpReplyWith(Action):
+    def __init__(self, mac):
+        super(SendArpReplyWith, self).__init__()
+        self.mac = mac
+
+    def perform(self, context):
+        event = context.event
+        if not isinstance(event, PacketIn):
+            return
+
+        msg = event.msg
+        in_port = msg.match['in_port']
+        datapath = msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        raw = msg.data
+        pkt = packet.Packet(data=raw)
+        pkt_ethernet = pkt.get_protocol(ethernet.ethernet)
+        if not pkt_ethernet:
+            return False
+        pkt_arp = pkt.get_protocol(arp.arp)
+
+        a = arp.arp(hwtype=pkt_arp.hwtype, proto=pkt_arp.proto, hlen=pkt_arp.hlen, plen=pkt_arp.plen,
+                    opcode=arp.ARP_REPLY, src_mac=self.mac, src_ip=pkt_arp.dst_ip, dst_mac=pkt_arp.src_mac,
+                    dst_ip=pkt_arp.src_ip)
+        e = ethernet.ethernet(dst=pkt_ethernet.src, src=self.mac, ethertype=ETH_TYPE_ARP)
+
+        reply = packet.Packet()
+        reply.add_protocol(e)
+        reply.add_protocol(a)
+        reply.serialize()
+
+        actions = [parser.OFPActionOutput(ofproto.OFPP_IN_PORT)]
+        out = parser.OFPPacketOut(datapath=datapath, buffer_id=ofproto.OFP_NO_BUFFER,
+                                  in_port=in_port, actions=actions, data=reply.data)
+        datapath.send_msg(out)
+
+
+class SendEchoReply(Action):
+    def perform(self, context):
+        event = context.event
+        if not isinstance(event, PacketIn):
+            return
+
+        msg = event.msg
+        in_port = msg.match['in_port']
+        datapath = msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        raw = msg.data
+        pkt = packet.Packet(data=raw)
+        pkt_ethernet = pkt.get_protocol(ethernet.ethernet)
+        if not pkt_ethernet:
+            return False
+        pkt_icmp = pkt.get_protocol(icmp.icmp)
+        pkt_ipv4 = pkt.get_protocol(ipv4.ipv4)
+
+        ip = ipv4.ipv4(dst=pkt_ipv4.src, src=pkt_ipv4.dst, proto=pkt_ipv4.proto)
+        ic = icmp.icmp(type_=icmp.ICMP_ECHO_REPLY, code=icmp.ICMP_ECHO_REPLY_CODE, csum=0,
+                       data=pkt_icmp.data)
+        e = ethernet.ethernet(dst=pkt_ethernet.src, src=pkt_ethernet.dst, ethertype=ETH_TYPE_IPV4)
+        reply = packet.Packet()
+        reply.add_protocol(e)
+        reply.add_protocol(ip)
+        reply.add_protocol(ic)
+        reply.serialize()
+
+        actions = [parser.OFPActionOutput(ofproto.OFPP_IN_PORT)]
+        out = parser.OFPPacketOut(datapath=datapath, buffer_id=ofproto.OFP_NO_BUFFER,
+                                  in_port=in_port, actions=actions, data=reply.data)
+        datapath.send_msg(out)
 
 
 # TODO use FlowModContext
