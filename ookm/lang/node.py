@@ -25,6 +25,9 @@ class Node(object):
     def identifier(cls):
         return cls.__name__
 
+    def __eq__(self, other):
+        return isinstance(other, Node) and self.identifier() == other.identifier()
+
     @classmethod
     def _print_indent(cls, name, indent):
         padded_len = indent * 2 + len(name)

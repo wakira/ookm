@@ -20,6 +20,7 @@ import importlib
 import websockets
 import asyncio
 import json
+import networkx
 from ookm.lang.predicate import predicates_intersects
 from ryu.topology.api import get_all_switch, get_all_link, get_all_host
 from operator import attrgetter
@@ -126,6 +127,7 @@ class _LinkStats(object):
         self.port1 = p1
         self.stats = dict()
 
+
 # TODO add locks to prevent race conditions
 class LinkManager(object):
     def __init__(self):
@@ -133,11 +135,13 @@ class LinkManager(object):
         self.conns = {}  # dpid: dp
         self._topo_raw_switches = []
         self._topo_raw_links = []
+        self.topology = networkx.DiGraph()
         self.links_with_stats = []
         self.went_down = False
 
     def register_object(self, link):
         self.links.append(link)
+        link.get_link_info_cb()  # immediately try to get link info, e.g. for dynamically generated link
 
     def query_link(self, switch1=None, port1=None, switch2=None, host=None):
         if switch1:
@@ -181,6 +185,11 @@ class LinkManager(object):
     def update_topology(self, app):
         self._topo_raw_switches = copy.copy(get_all_switch(app))
         self._topo_raw_links = copy.copy(get_all_link(app))
+
+        switch_dpids = [switch.dp.id for switch in self._topo_raw_switches]
+        links = [(link.src.dpid,link.dst.dpid) for link in self._topo_raw_links]
+        self.topology.add_nodes_from(switch_dpids)
+        self.topology.add_edges_from(links)
         ookm_log.debug("Topology updated")
 
     def register_switch(self, id, datapath):

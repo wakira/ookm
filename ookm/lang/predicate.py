@@ -27,9 +27,6 @@ class Predicate(Node):
         self.left_operand = lhs
         self.right_operand = rhs
 
-    def __eq__(self, other):
-        return isinstance(other, Predicate) and self.identifier() == other.identifier()
-
     def __and__(self, rhs):
         Predicate._validate_rhs(rhs, Predicate, '&')
         return AndExpression(lhs=self, rhs=rhs)

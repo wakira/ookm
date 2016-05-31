@@ -17,18 +17,23 @@ from ookm.lang.node import Node
 
 
 class Selector(Node):
-    def __init__(self, members, name='Sel'):
+    def __init__(self, name='Sel'):
         super(Selector, self).__init__(name)
+
+    def select(self, event):
+        pass
+
+    def debug_print(self, indent=0):
+        Selector._print_indent(self.name, indent)
+
+
+class MemberSelector(Selector):
+    def __init__(self, members):
+        super(MemberSelector, self).__init__(name='MemSel')
         self.members = sorted(members, key=lambda x: x.__hash__())
 
     def all_members(self):
         return self.members
 
-    def select(self, event):
-        return []
-
     def __eq__(self, other):
-        return self.identifier() == other.identifier() and self.all_members() == other.all_members()
-
-    def debug_print(self, indent=0):
-        Selector._print_indent(self.name, indent)
+        return super(MemberSelector, self).__eq__(other) and self.all_members() == other.all_members()

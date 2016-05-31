@@ -27,9 +27,6 @@ class Action(Node):
         self.flow_mod = False
         self.flow_modding_mode = True  # Only affects Actions with flow_mod true
 
-    def __eq__(self, other):
-        return isinstance(other, Action) and self.identifier() == other.identifier()
-
     def __mod__(self, rhs):
         Action._validate_rhs(rhs)
         self.selector = rhs

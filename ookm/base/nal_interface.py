@@ -138,10 +138,11 @@ class OokmFlowModContext(object):
         if msg.buffer_id != ofproto.OFP_NO_BUFFER:
             mod = parser.OFPFlowMod(datapath=datapath, buffer_id=msg.buffer_id,
                                     priority=priority, match=match,
-                                    instructions=inst)
+                                    instructions=inst, idle_timeout=3, hard_timeout=10)
         else:
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                    match=match, instructions=inst)
+                                    match=match, instructions=inst,
+                                    idle_timeout=3, hard_timeout=10)
         datapath.send_msg(mod)
 
         data = None

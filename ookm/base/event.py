@@ -25,7 +25,8 @@ class OokmEvent(object):
 class PacketIn(OokmEvent):
     def __init__(self, ofp_event):
         super(PacketIn, self).__init__(ofp_event.msg)
-        
+        # TODO extract common header fields for easier use
+
 
 class ConnectionUp(OokmEvent):
     def __init__(self, ofp_event):

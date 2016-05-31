@@ -34,7 +34,7 @@ from ookm.lang.action import Action
 from ookm.lang.predicate import AtomicPredicate
 from ookm.lang.predicate import predicate_conflict_helper
 from ookm.lang.rule import Rule
-from ookm.lang.selector import Selector
+from ookm.lang.selector import *
 
 _ETH_TYPE_IPV4 = 0x800
 _ETH_TYPE_IPV6 = 0x86dd
@@ -314,8 +314,6 @@ class DstIp(AtomicPredicate):
             return False
         pkt_ipv4 = pkt.get_protocol(ipv4.ipv4)
         pkt_ipv6 = pkt.get_protocol(ipv6.ipv6)
-        pkt_icmp = pkt.get_protocol(icmp.icmp)
-        ookm_log.debug("TESTING %s", pkt_icmp)
         return (self.ipv4 and pkt_ipv4 and pkt_ipv4.dst == self.ip_str) or\
                (not self.ipv4 and pkt_ipv6 and pkt_ipv6.dst == self.ip_str)
 
@@ -345,7 +343,7 @@ class EchoRequest(AtomicPredicate):
 # Selectors
 
 
-class RandomSelector(Selector):
+class RandomSelector(MemberSelector):
     def __init__(self, members):
         super(RandomSelector, self).__init__(members)
 
@@ -353,7 +351,7 @@ class RandomSelector(Selector):
         return [random.choice(self.members)]
 
 
-class RoundRobinSelector(Selector):
+class RoundRobinSelector(MemberSelector):
     def __init__(self, members):
         super(RoundRobinSelector, self).__init__()
         self.members = members
@@ -365,7 +363,7 @@ class RoundRobinSelector(Selector):
         return ret
 
 
-class SelectLowestLoad(Selector):
+class SelectLowestLoad(MemberSelector):
     def __init__(self, members):
         super(SelectLowestLoad, self).__init__(members)
 
@@ -384,7 +382,7 @@ class SelectLowestLoad(Selector):
         return [min_member]
 
 
-class SelectAll(Selector):
+class SelectAll(MemberSelector):
     def __init__(self, members):
         super(SelectAll, self).__init__(members)
 
@@ -691,6 +689,8 @@ class ApplyLinkForEach(Action):
 class ApplyRouteForEach(Action):
     def __init__(self):
         super(ApplyRouteForEach, self).__init__()
+        # It's too hard to include ApplyRouteForEach in rule compiling
+        # so we just let flow_mod be False so it will be ignored when checking
         self.flow_mod = False
 
     def perform(self, context):
@@ -710,7 +710,7 @@ class ApplyRouteForEach(Action):
             return
 
         if len(selection) < 1:
-            ookm_log.warning("No route is selected to apply")
+            ookm_log.debug("No route is selected to apply")
             return
 
         route = selection[0]
@@ -776,7 +776,8 @@ class ApplyRouteForEach(Action):
             inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                                  actions)]
             mod = parser.OFPFlowMod(datapath=target_dp, priority=4,
-                                    match=match, instructions=inst)
+                                    match=match, instructions=inst,
+                                    idle_timeout=10, hard_timeout=10)
             target_dp.send_msg(mod)
 
             # determine next target dp
