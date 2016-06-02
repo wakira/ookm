@@ -174,9 +174,6 @@ class LinkManager(object):
                 return switch1.dpid, found[0].src.port_no, found[0].dst.dpid, found[0].dst.port_no
         return None, None, None, None
 
-    def count(self):
-        return len(self.links)
-
     def startup(self):
         t = threading.Thread(target=self.worker, args=[])
         t.start()
@@ -197,6 +194,8 @@ class LinkManager(object):
     def register_switch(self, id, datapath):
         if id not in self.conns:
             ookm_log.info('register switch %016x', id)
+        else:
+            ookm_log.info('update switch %016x', id)
         self.conns[id] = datapath
 
     def unregister_switch(self, id):
@@ -222,6 +221,7 @@ class LinkManager(object):
             found = list(filter(lambda ls: ls.switch1 == dpid and ls.port1 == port_no, self.links_with_stats))
             if found:
                 # generate speed from statistics
+                # TODO if some packets did not make it to the controller?
                 found[0].stats['tx_speed'] = (stat.tx_bytes - found[0].stats['tx_bytes'])\
                                              / LinkManager.PORT_STATS_REQUEST_INTERVAL
                 found[0].stats['rx_speed'] = (stat.rx_bytes - found[0].stats['rx_bytes']) \

@@ -14,6 +14,7 @@
 
 import random
 
+from ryu.ofproto import ofproto_v1_3
 from ryu.controller import ofp_event
 from ryu.lib.packet import arp
 from ryu.lib.packet import ether_types
@@ -439,9 +440,9 @@ Adapted from ryu.app.simple_switch13
 '''
 
 
-class SetDstIpAddr(Action):
+class SetDstIp(Action):
     def __init__(self, ip_str):
-        super(SetDstIpAddr, self).__init__()
+        super(SetDstIp, self).__init__()
 
         self.ip_str = ip_str
         self.ipv4 = ':' not in ip_str
@@ -457,9 +458,9 @@ class SetDstIpAddr(Action):
             context.set_field({'ipv6_dst': self.ip_str})
 
 
-class SetSrcIPAddr(Action):
+class SetSrcIp(Action):
     def __init__(self, ip_str):
-        super(SetSrcIPAddr, self).__init__()
+        super(SetSrcIp, self).__init__()
 
         self.ip_str = ip_str
         self.ipv4 = ':' not in ip_str
@@ -473,6 +474,34 @@ class SetSrcIPAddr(Action):
             context.set_field({'ipv4_src': self.ip_str})
         else:
             context.set_field({'ipv6_src': self.ip_str})
+
+
+class SetDstMac(Action):
+    def __init__(self, mac):
+        super(SetDstMac, self).__init__()
+
+        self.mac = mac
+
+    def perform(self, context):
+        event = context.event
+        if not isinstance(event, PacketIn):
+            return
+
+        context.set_field({'dst': self.mac})
+
+
+class SetSrcMac(Action):
+    def __init__(self, mac):
+        super(SetSrcMac, self).__init__()
+
+        self.mac = mac
+
+    def perform(self, context):
+        event = context.event
+        if not isinstance(event, PacketIn):
+            return
+
+        context.set_field({'src': self.mac})
 
 
 class SendArpReplyWith(Action):
@@ -661,6 +690,13 @@ class L2Learn(Action):
         datapath.send_msg(out)
 
 
+class ForwardProxy(Action):
+    def perform(self, context):
+        event = context.event
+        if not isinstance(event, PacketIn):
+            return
+
+
 class ApplyLink(Action):
     def __init__(self):
         super(ApplyLink, self).__init__()
@@ -671,6 +707,7 @@ class ApplyLink(Action):
         if not isinstance(event, PacketIn):
             return
 
+        # TODO wtf
         if isinstance(self.selector, Link):
             selection = [self.selector]
         elif isinstance(self.selector, Selector):
@@ -826,12 +863,11 @@ class ApplyRouteForEach(Action):
             return
 
         route = selection[0]
-        port_out = None
         first_link = route[0]
         if not first_link.info_retrieved:
             ookm_log.debug("ApplyRouteForEach: First Link not initialized")
             return
-        # determine port_out by first_link
+        # determine outport by first_link
         switch_1_to_2 = first_link.switch1 == datapath.id
         switch_2_to_1 = False
         if first_link.switch2:
@@ -1043,6 +1079,7 @@ class Link(object):
         # if any info is returned by link_mgr.query_link()
         if self.switch1 or self.switch2 or self.port1 or self.port2:
             self.info_retrieved = True
+            link_mgr.links.remove(self)
             ookm_log.info("Retrieved info of link %s", self.__str__())
 
     def __init__(self, switch_port=None, switch_switch=None, switch_host=None):
@@ -1082,3 +1119,32 @@ class Link(object):
     def usage(self):
         stats = link_mgr.query_load(self.switch1, self.port1)
         return stats.get('tx_bytes', 0) + stats.get('rx_bytes', 0)
+
+
+class VirtualGateway(object):
+    def __init__(self, ip_str, mac, dpid, port):
+        self.ip_str = ip_str
+        self.mac = mac
+
+        self.dpid = dpid
+
+        self.port = port
+
+        self._install_default_rules()
+
+    def _install_default_rules(self):
+        # The makes the gateway reply to arp requests.
+        (FromSwitch(self.dpid) & InPort(self.port) & DstIp(self.ip_str) & ArpRequest()) >> \
+            [SendArpReplyWith(self.mac)]
+
+        # This makes the gateway reply to echo requests.
+        (FromSwitch(self.dpid) & InPort(self.port) & DstIp(self.ip_str) & EchoRequest()) >> \
+            [SendEchoReply()]
+
+        # This allows arp request to go out.
+        (FromSwitch(self.dpid) & ~InPort(self.port) & ArpRequest()) >> \
+            [SimpleForward(self.port)]
+
+        # This allows arp reply to go in.
+        (FromSwitch(self.dpid) & InPort(self.port) & ArpReply()) >> \
+            [SimpleForward(ofproto_v1_3.OFPP_FLOOD)]
