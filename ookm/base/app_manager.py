@@ -20,6 +20,8 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
+from ryu.ofproto.ether import ETH_TYPE_LLDP
+from ryu.lib.packet import packet, ethernet
 
 import ookm.base.event as ookm_event
 import ookm.framework.core as core
@@ -37,7 +39,7 @@ class OokmRyuCore(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(OokmRyuCore, self).__init__(*args, **kwargs)
         # start link manager, host manager ... etc
-        core.startup(logger=self.logger)
+        core.startup(self, logger=self.logger)
 
         # load rules in user program
         program_name = environ.get("OOKM_PROGRAM")
@@ -62,6 +64,7 @@ class OokmRyuCore(app_manager.RyuApp):
         # actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
         self.add_flow(datapath, 0, match, actions)
 
+    '''
     @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, DEAD_DISPATCHER])
     def _state_change_handler(self, ev):
         # datapath = ev.datapath
@@ -75,31 +78,32 @@ class OokmRyuCore(app_manager.RyuApp):
             # core.link_mgr.unregister_switch(datapath.id, datapath)
             event = ookm_event.ConnectionDown(ev)
         OokmRyuCore._handle_event(event)
+    '''
 
     @set_ev_cls(topology.event.EventSwitchEnter)
     def _switch_enter_handler(self, ev):
         core.link_mgr.register_switch(ev.switch.dp.id, ev.switch.dp)
-        core.link_mgr.update_topology(self)
+        # core.link_mgr.update_topology(self)
 
     @set_ev_cls(topology.event.EventSwitchLeave)
     def _switch_leave_handler(self, ev):
         core.link_mgr.unregister_switch(ev.switch.dp.id)
-        core.link_mgr.update_topology(self)
+        # core.link_mgr.update_topology(self)
 
     @set_ev_cls(topology.event.EventLinkAdd)
     def _link_add_handler(self, ev):
         core.link_mgr.register_link(ev.link.src, ev.link.dst)
-        core.link_mgr.update_topology(self)
+        # core.link_mgr.update_topology(self)
 
     @set_ev_cls(topology.event.EventLinkDelete)
     def _link_delete_handler(self, ev):
         core.link_mgr.unregister_link(ev.link.src, ev.link.dst)
-        core.link_mgr.update_topology(self)
+        # core.link_mgr.update_topology(self)
 
     @set_ev_cls(topology.event.EventHostAdd)
     def _host_add_handler(self, ev):
         core.host_mgr.register_host(ev.host)
-        core.link_mgr.update_topology(self)
+        # core.link_mgr.update_topology(self)
 
     def add_flow(self, datapath, priority, match, actions):
         ofproto = datapath.ofproto
@@ -125,7 +129,9 @@ class OokmRyuCore(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
-        self._handle_event(ookm_event.PacketIn(ev))
+        eth = packet.Packet(data=ev.msg.data).get_protocol(ethernet.ethernet)
+        if eth.ethertype != ETH_TYPE_LLDP:
+            self._handle_event(ookm_event.PacketIn(ev))
 
     # no need for FlowStats for now
     '''

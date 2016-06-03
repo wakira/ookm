@@ -440,6 +440,39 @@ Adapted from ryu.app.simple_switch13
 '''
 
 
+class AutoARPProcessing(Action):
+    def perform(self, context):
+        event = context.event
+        if not isinstance(event, PacketIn):
+            return
+        msg = event.msg
+        raw = msg.data
+        pkt = packet.Packet(data=raw)
+        pkt_ethernet = pkt.get_protocol(ethernet.ethernet)
+        if not pkt_ethernet:
+            return
+        pkt_arp = pkt.get_protocol(arp.arp)
+        if not pkt_arp:
+            return
+        # remember source
+
+        # find the switch connecting dst host
+        r = host_mgr.query_host(ipv4=pkt_arp.dst_ip)
+        if r:
+            target_dpid, out_port = r
+            target_dp = link_mgr.conns[target_dpid]
+        else:
+            return
+        # send out
+        ofproto = target_dp.ofproto
+        parser = target_dp.ofproto_parser
+        actions = [parser.OFPActionOutput(out_port)]
+        data = event.msg.data
+        out = parser.OFPPacketOut(datapath=target_dp, buffer_id=ofproto.OFP_NO_BUFFER,
+                                  in_port=ofproto.OFPP_CONTROLLER, actions=actions, data=data)
+        target_dp.send_msg(out)
+
+
 class SetDstIp(Action):
     def __init__(self, ip_str):
         super(SetDstIp, self).__init__()
@@ -1040,10 +1073,11 @@ class Host(object):
                 self.ipv4 = ip
             else:
                 self.ipv6 = ip
-        elif mac:
+        if mac:
             self.mac = mac
-        else:
+        if not (ip or mac):
             ookm_log.error("Must specify ip or mac in Host(...)")
+            return
 
         host_mgr.register_object(self)
 

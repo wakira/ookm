@@ -22,7 +22,7 @@ import asyncio
 import json
 import networkx
 from ookm.lang.predicate import predicates_intersects
-from ryu.topology.api import get_all_switch, get_all_link
+from ryu.topology.api import get_all_switch, get_all_link, get_all_host
 from operator import attrgetter
 
 
@@ -128,9 +128,8 @@ class _LinkStats(object):
         self.stats = dict()
 
 
-# TODO add locks to prevent race conditions
 class LinkManager(object):
-    PORT_STATS_REQUEST_INTERVAL = 1
+    PORT_STATS_REQUEST_INTERVAL = 5
 
     def __init__(self):
         self.links = []  # links that has been used in user programs
@@ -140,22 +139,24 @@ class LinkManager(object):
         self.topology = networkx.DiGraph()
         self.links_with_stats = []
         self.went_down = False
+        self.app = None
 
     def register_object(self, link):
         self.links.append(link)
         link.get_link_info_cb()  # immediately try to get link info, e.g. for dynamically generated link
 
+    # TODO optimize query performance
     def query_link(self, switch1=None, port1=None, switch2=None, host=None):
         if switch1:
             found = None
             if switch2:
                 def ss_match(port):
                     return port.src.dpid == switch1.dpid and port.dst.dpid == switch2.dpid
-                found = list(filter(ss_match, self._topo_raw_links))
+                found = list(filter(ss_match, get_all_link(self.app)))
             elif port1:
                 def sp_match(port):
                     return port.src.dpid == switch1.dpid and port.src.port_no == port1
-                found = list(filter(sp_match, self._topo_raw_links))
+                found = list(filter(sp_match, get_all_link(self.app)))
             elif host:
                 if host.mac:
                     r = host_mgr.query_host(mac=host.mac)
@@ -174,16 +175,18 @@ class LinkManager(object):
                 return switch1.dpid, found[0].src.port_no, found[0].dst.dpid, found[0].dst.port_no
         return None, None, None, None
 
-    def startup(self):
+    def startup(self, app):
+        self.app = app
         t = threading.Thread(target=self.worker, args=[])
         t.start()
 
     def shutdown(self):
         self.went_down = True
 
+    # TODO update is too often
     def update_topology(self, app):
-        self._topo_raw_switches = copy.copy(get_all_switch(app))
-        self._topo_raw_links = copy.copy(get_all_link(app))
+        self._topo_raw_switches = get_all_switch(app)
+        self._topo_raw_links = get_all_link(app)
 
         switch_dpids = [switch.dp.id for switch in self._topo_raw_switches]
         links = [(link.src.dpid,link.dst.dpid) for link in self._topo_raw_links]
@@ -194,24 +197,26 @@ class LinkManager(object):
     def register_switch(self, id, datapath):
         if id not in self.conns:
             ookm_log.info('register switch %016x', id)
+            self.topology.add_node(id)
+            self.conns[id] = datapath
         else:
-            ookm_log.info('update switch %016x', id)
-        self.conns[id] = datapath
+            ookm_log.warning('unidentified switch %016x', id)
 
     def unregister_switch(self, id):
         if id in self.conns:
             ookm_log.info('unregister switch %016x', id)
+            self.topology.remove_node(id)
             del self.conns[id]
+        else:
+            ookm_log.warning('unregister non-existent switch %016x', id)
 
     def register_link(self, src, dst):
-        ookm_log.debug("register link! %s, %s", src, dst)
-        for obj in self.links:
-            if not obj.info_retrieved:
-                obj.get_link_info_cb()
+        ookm_log.info("register link! %s, %s", src, dst)
+        self.topology.add_edge(src.dpid, dst.dpid)
 
-    # TODO implement link failover
     def unregister_link(self, src, dst):
-        pass
+        ookm_log.info("unregister link! %s, %s", src, dst)
+        self.topology.remove_edge(src.dpid, dst.dpid)
 
     def handle_port_stats(self, ev):
         body = ev.msg.body
@@ -265,26 +270,33 @@ class LinkManager(object):
             for link in self.links:
                 if not link.info_retrieved:
                     link.get_link_info_cb()
-            time.sleep(1)
+
+            time.sleep(LinkManager.PORT_STATS_REQUEST_INTERVAL)
 
 link_mgr = LinkManager()
 
 
+# TODO optimize query performance
 class HostManager(object):
     def __init__(self):
         self.hosts = []  # hosts that has been used in user programs
         self._topology_raw_hosts = []
         self.lock = threading.Lock()
         self.mac_to_load = dict()
+        self.ipv4_to_mac = dict()
+        self.app = None
 
     def query_host(self, ipv4=None, ipv6=None, mac=None):
         found = None
         if mac:
             found = list(filter(lambda h: h.mac == mac, self._topology_raw_hosts))
         elif ipv4:
-            found = list(filter(lambda h: ipv4 in h.ipv4, self._topology_raw_hosts))
+            found = list(filter(lambda h: h.ipv4 == ipv4, self._topology_raw_hosts))
+            v4_mac = self.ipv4_to_mac.get(ipv4)
+            if not found and v4_mac:
+                found = list(filter(lambda h: h.mac == v4_mac, self._topology_raw_hosts))
         elif ipv6:
-            found = list(filter(lambda h: ipv6 in h.ipv6, self._topology_raw_hosts))
+            found = list(filter(lambda h: h.ipv6 == ipv6, self._topology_raw_hosts))
         if found:
             return found[0].port.dpid, found[0].port.port_no
         else:
@@ -294,10 +306,13 @@ class HostManager(object):
         return self.mac_to_load[host.mac][key]
 
     def register_object(self, host_obj):
+        if host_obj.ipv4:
+            self.ipv4_to_mac[host_obj.ipv4] = host_obj.mac
         self.hosts.append(host_obj)
 
     def register_host(self, host):
         self._topology_raw_hosts.append(host)
+        ookm_log.info("Register %s", host)
 
     def count(self):
         return len(self.hosts)
@@ -319,24 +334,25 @@ class HostManager(object):
                     self.mac_to_load[sender][key+'_ts'] = timestamp
                     self.mac_to_load[sender][key] = data_dict[key]
 
-    def worker(self):
+    def statistic_worker(self):
         start_server = websockets.serve(self.serve_client, 'localhost', 12345)
         event_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(event_loop)
         event_loop.run_until_complete(start_server)
         event_loop.run_forever()
 
-    def startup(self):
-        t = threading.Thread(target=self.worker, args=[])
+    def startup(self, app):
+        self.app = app
+        t = threading.Thread(target=self.statistic_worker, args=[])
         t.start()
 
 host_mgr = HostManager()
 
 
-def startup(logger=None):
+def startup(app, logger=None):
     # Rule for processing all unmatched packets.
     # Anything() >> [ PrintEvent() ]
 
     ookm_log.set_logger(logger)
-    link_mgr.startup()
-    host_mgr.startup()
+    link_mgr.startup(app)
+    host_mgr.startup(app)
