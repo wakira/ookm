@@ -18,6 +18,10 @@ from ookm.lang.node import Node
 from ookm.lang.rule import Rule
 
 
+# TODO OrExpression is not supported for now
+# It can be implemented by transforming all rules to conjunctive normal form
+
+
 class Predicate(Node):
     def __init__(self, name='Pred', lhs=None, rhs=None):
         super(Predicate, self).__init__(name)
@@ -128,21 +132,6 @@ class AndExpression(Predicate):
             return [pred.right_operand] + AndExpression._build_predicate_list(pred.left_operand)
         else:
             return []
-
-
-# WE DO NOT SUPPORT OrExpression! FOR NOW!
-'''
-class OrExpression(Predicate):
-    def __init__(self, name='Or', lhs=None, rhs=None):
-        super(OrExpression, self).__init__(name, lhs, rhs)
-
-    def test(self, obj):
-        # If either lhs or rhs is None, operator | returns False.
-        if not self.left_operand or not self.right_operand:
-            return False
-        else:
-            return self.left_operand.test(obj) or self.right_operand.test(obj)
-'''
 
 
 def predicates_intersects(l1, l2):

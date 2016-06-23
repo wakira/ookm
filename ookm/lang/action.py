@@ -23,7 +23,6 @@ class Action(Node):
 
         self.rule = None
         self.selector = None
-        self.fall_through = True
         self.flow_mod = False
         self.flow_modding_mode = True  # Only affects Actions with flow_mod true
 

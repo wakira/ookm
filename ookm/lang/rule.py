@@ -26,7 +26,6 @@ class Rule(Node):
         self.actions = acts
         for action in self.actions:
             action.rule = self
-        self.fall_through = all(x.fall_through for x in self.actions)
         from ookm.framework.core import rule_mgr
         rule_mgr.register(self)
 

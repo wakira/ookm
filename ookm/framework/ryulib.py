@@ -440,6 +440,7 @@ Adapted from ryu.app.simple_switch13
 '''
 
 
+# TODO flood out ARP request when dest not known
 class AutoARPProcessing(Action):
     def perform(self, context):
         event = context.event
@@ -986,7 +987,6 @@ class SimpleForward(Action):
     def __init__(self, port):
         super(SimpleForward, self).__init__()
         self.port = port
-        self.fall_through = False
 
     def perform(self, context):
         event = context.event

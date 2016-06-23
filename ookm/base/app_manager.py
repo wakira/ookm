@@ -32,6 +32,7 @@ from ookm.base.nal_interface import OokmFlowModContext
 # It boots up the core and loads user program from environment variables
 # all Ryu events are processed using core mechanisms
 
+# TODO Ookm is currently singleton, only one application can be run
 
 class OokmRyuCore(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]

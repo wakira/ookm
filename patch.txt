@@ -1,0 +1,20 @@
+--- switches.py	2016-05-07 17:32:27.873137571 +0900
++++ switches.py	2016-06-01 00:40:18.944109088 +0900
+@@ -87,7 +87,7 @@
+         return {'dpid': dpid_to_str(self.dpid),
+                 'port_no': port_no_to_str(self.port_no),
+                 'hw_addr': self.hw_addr,
+-                'name': self.name.rstrip('\0')}
++                'name': self.name.decode('utf-8').rstrip('\0')}
+ 
+     # for Switch.del_port()
+     def __eq__(self, other):
+@@ -476,7 +476,7 @@
+         if tlv_chassis_id.subtype != lldp.ChassisID.SUB_LOCALLY_ASSIGNED:
+             raise LLDPPacket.LLDPUnknownFormat(
+                 msg='unknown chassis id subtype %d' % tlv_chassis_id.subtype)
+-        chassis_id = tlv_chassis_id.chassis_id
++        chassis_id = tlv_chassis_id.chassis_id.decode('utf-8')
+         if not chassis_id.startswith(LLDPPacket.CHASSIS_ID_PREFIX):
+             raise LLDPPacket.LLDPUnknownFormat(
+                 msg='unknown chassis id format %s' % chassis_id)
