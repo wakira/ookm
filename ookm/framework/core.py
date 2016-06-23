@@ -183,7 +183,6 @@ class LinkManager(object):
     def shutdown(self):
         self.went_down = True
 
-    # TODO update is too often
     def update_topology(self, app):
         self._topo_raw_switches = get_all_switch(app)
         self._topo_raw_links = get_all_link(app)

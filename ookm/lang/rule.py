@@ -26,8 +26,6 @@ class Rule(Node):
         self.actions = acts
         for action in self.actions:
             action.rule = self
-        # TODO suppress conflicting predicates and actions here
-        # TODO conflict comes from duplication of same predicate or action
         self.fall_through = all(x.fall_through for x in self.actions)
         from ookm.framework.core import rule_mgr
         rule_mgr.register(self)

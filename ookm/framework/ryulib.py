@@ -701,9 +701,6 @@ class L2Learn(Action):
 
         actions = [parser.OFPActionOutput(out_port)]
 
-        # TODO delete this after test
-        # out_port = ofproto.OFPP_NORMAL  # OpenFlow 1.3?! don't know how it works
-
         # if in flow_modding_mode, install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD and self.flow_modding_mode:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
@@ -728,6 +725,7 @@ class ForwardProxy(Action):
         event = context.event
         if not isinstance(event, PacketIn):
             return
+        # TODO not implemented yet
 
 
 class ApplyLink(Action):
@@ -740,7 +738,6 @@ class ApplyLink(Action):
         if not isinstance(event, PacketIn):
             return
 
-        # TODO wtf
         if isinstance(self.selector, Link):
             selection = [self.selector]
         elif isinstance(self.selector, Selector):
@@ -927,16 +924,6 @@ class ApplyRouteForEach(Action):
             if not link.info_retrieved:
                 ookm_log.debug("ApplyRouteForEach: Link not initialized")
                 return
-            '''
-            # THIS IS OLD IMPLEMENTATION USING APPLYLINK
-            # remove FromSwitch from original predicate
-            pred_list = list(filter(lambda p: not isinstance(p, FromSwitch), self.rule.predicate))
-            # add correct FromSwitch into pred_list and sort predicate again
-            pred_list.append(FromSwitch(target))
-            pred_list = sorted(pred_list, key=lambda p: p.identifier())
-            # register the generated rule
-            Rule(pred=pred_list, acts=[ApplyLinkForEach() % link])
-            '''
             # get link direction
             switch_1_to_2 = link.switch1 == target
             switch_2_to_1 = False
@@ -1130,7 +1117,6 @@ class Link(object):
         link_mgr.register_object(self)
 
     def __str__(self):
-        # TODO not elegant
         if not self.info_retrieved:
             return "Uninitialized"
         elif self.switch2:

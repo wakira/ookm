@@ -18,7 +18,6 @@ from ookm.lang.node import Node
 from ookm.lang.rule import Rule
 
 
-# TODO or and negate is temporarily disabled
 class Predicate(Node):
     def __init__(self, name='Pred', lhs=None, rhs=None):
         super(Predicate, self).__init__(name)
